@@ -67,7 +67,7 @@ type Config struct {
 	JwtConfig   `toml:"jwtConfig"`
 	MainConfig  `toml:"mainConfig"`
 	Rabbitmq    `toml:"rabbitmqConfig"`
-}
+} //结构体嵌套，子结构体Config可以直接使用父结构体的字段和方法
 
 type RedisKeyConfig struct {
 	CaptchaPrefix string
