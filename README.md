@@ -1,0 +1,2 @@
+# GopherAI
+just a imitation
