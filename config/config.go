@@ -73,6 +73,10 @@ type RedisKeyConfig struct {
 	CaptchaPrefix string
 }
 
+var DefaultRedisKeyConfig = RedisKeyConfig{
+	CaptchaPrefix: "captcha:%s",
+}
+
 var config *Config
 
 // InitConfig 初始化项目配置
