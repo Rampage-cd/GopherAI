@@ -26,7 +26,7 @@ func Auth() gin.HandlerFunc {
 		}
 
 		if token == "" {
-			c.JSON(http.StatusOK, res.CodeOf(code.CodeInvalidToken))
+			c.JSON(http.StatusUnauthorized, res.CodeOf(code.CodeInvalidToken))
 			//返回统一的无效的token错误码
 			c.Abort() //终止当前请求的后续Handler执行
 			return
@@ -36,7 +36,7 @@ func Auth() gin.HandlerFunc {
 
 		userName, ok := myjwt.ParseToken(token) //调用解析函数，返回从token中解析出的用户名
 		if !ok {
-			c.JSON(http.StatusOK, res.CodeOf(code.CodeInvalidToken))
+			c.JSON(http.StatusUnauthorized, res.CodeOf(code.CodeInvalidToken))
 			c.Abort()
 			return
 		}

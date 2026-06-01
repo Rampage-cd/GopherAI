@@ -14,7 +14,7 @@ import (
 var conn *amqp.Connection
 
 // 初始化connection
-func initConn() {
+func initConn() error{
 	c := config.GetConfig()
 
 	//拼接RabbitMQ连接URL
@@ -26,9 +26,10 @@ func initConn() {
 
 	var err error
 	conn, err = amqp.Dial(mqUrl) //建立与RabbitMQ Broker的TCP连接
-	if err != nil {
-		log.Fatalf("RabbitMQ connection failed: %v", err) // 输出错误并退出程序
-	}
+	// if err != nil {
+	// 	log.Fatalf("RabbitMQ connection failed: %v", err) // 输出错误并退出程序
+	// }
+	return err//底层不能使用Fatal，因为底层会直接暴毙，无法将错误传给上层
 }
 
 // RabbitMQ RabbitMQ结构体
@@ -51,13 +52,16 @@ func (r *RabbitMQ) Destroy() {
 }
 
 // NewWorkRabbitMQ 创建Work模式的RabbitMQ实例
-func NewWorkRabbitMQ(queue string) *RabbitMQ {
+func NewWorkRabbitMQ(queue string) (*RabbitMQ,error) {
 	// new rabbitmq
 	rabbitmq := NewRabbitMQ("", queue)
 
 	// get connection
 	if conn == nil {
-		initConn() //如果全局连接不存在，则初始化
+		//initConn() //如果全局连接不存在，则初始化
+		if err := initConn();err!=nil{
+			return nil,err
+		}
 	}
 	rabbitmq.conn = conn
 
@@ -65,10 +69,11 @@ func NewWorkRabbitMQ(queue string) *RabbitMQ {
 	var err error
 	rabbitmq.channel, err = rabbitmq.conn.Channel() //基于连接创建channel
 	if err != nil {
-		panic(err.Error())
+		//panic(err.Error())
+		return nil,err//底层不能使用panic，为了能够将错误传递给前端
 	}
 
-	return rabbitmq
+	return rabbitmq,nil
 }
 
 // Publish 发送消息

@@ -16,7 +16,7 @@ var Rdb *redis.Client
 
 var ctx = context.Background()
 
-func Init() {
+func Init() error{
 	conf := config.GetConfig()
 	host := conf.RedisConfig.RedisHost
 	port := conf.RedisConfig.RedisPort
@@ -32,6 +32,11 @@ func Init() {
 	})
 	//创建Redis客户端
 
+	_,err := Rdb.Ping(ctx).Result()
+	if err!=nil{
+		return err
+	}//NewClient只是创建了一个配置对象，懒加载，无法确定密码是否正确，这里通过Ping来验证
+	return nil
 }
 
 // 为某个邮箱设置验证码

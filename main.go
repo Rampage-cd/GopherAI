@@ -10,6 +10,12 @@ import (
 	"GopherAI/router"
 	"fmt"
 	"log"
+	"os"
+	"os/signal"
+	"net/http"
+	"syscall"
+	"time"
+	"context"
 )
 
 func StartServer(addr string, port int) error {
@@ -62,13 +68,53 @@ func main() {
 	readDataFromDB()
 
 	//初始化redis
-	redis.Init()
+	if err := redis.Init(); err!=nil{
+		log.Fatalf("redis init failed: %v",err)
+	}
 	log.Println("redis init success  ")
-	rabbitmq.InitRabbitMQ()
+	if err := rabbitmq.InitRabbitMQ(); err!=nil{
+		log.Fatalf("rabbitmq init failed: %v",err)
+	}
 	log.Println("rabbitmq init success  ")
 
-	err := StartServer(host, port) // 启动 HTTP 服务
-	if err != nil {
-		panic(err)
+	// err := StartServer(host, port) // 启动 HTTP 服务
+	// if err != nil {
+	// 	panic(err)
+	// }
+	//手动创建http.Server,方便后续进行优雅退出
+	r := router.InitRouter()
+
+	srv := &http.Server{
+		Addr:		fmt.Sprintf("%s:%d",host,port),
+		Handler:	r,
 	}
+
+	//开启独立协程启动Web服务
+	go func(){
+		log.Printf("GopherAI Server is running at http://%s:%d\n",host,port)
+		if err := srv.ListenAndServe(); err!=nil && err != http.ErrServerClosed{
+			log.Fatalf("HTTP Server listen error: %s\n",err)
+		}
+	}()
+
+	//优雅退出机制
+	quit := make(chan os.Signal,1)
+	signal.Notify(quit,syscall.SIGINT,syscall.SIGTERM)
+	
+	//主协程阻塞，直到收到退出信号
+	<-quit
+	log.Printf("接收到停止信号,正在准备安全退出系统...")
+
+	ctx,cancel := context.WithTimeout(context.Background(),5*time.Second)
+	defer cancel()//这5秒钟用于处理还没有处理完成的旧请求
+
+	if err := srv.Shutdown(ctx); err != nil{
+		log.Fatalf("HTTP Server 强制关闭异常:",err)
+	}
+
+	//安全销毁消息队列
+	rabbitmq.DestoryRabbitMQ()
+	log.Println("RabbitMQ 连接已安全关闭")
+
+	log.Println("GopherAI Server已优雅退出。")
 }

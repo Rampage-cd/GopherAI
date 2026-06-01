@@ -54,11 +54,11 @@ func ConvertToModelMessage(sessionID string, userName string, msg *schema.Messag
 	}
 }
 
-// 将数据库消息转换为 schema 消息（供 AI 使用）
+// 将数据库消息转换为 schema 消息（供 AI 使用，只关心谁在说话，说了什么）
 func ConvertToSchemaMessages(msgs []*model.Message) []*schema.Message {
 	schemaMsgs := make([]*schema.Message, 0, len(msgs))
 	for _, m := range msgs {
-		role := schema.Assistant //默认角色
+		role := schema.Assistant //默认角色，AI
 		if m.IsUser {
 			role = schema.User //用户角色
 		}

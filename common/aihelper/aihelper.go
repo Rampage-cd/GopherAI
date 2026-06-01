@@ -10,6 +10,8 @@ import (
 	"GopherAI/utils"           //Message和SchemaMessage转换工具
 	"context"
 	"sync"
+	"log"
+	"errors"
 )
 
 // AIHelper AI助手结构体，包含消息历史和AI模型
@@ -32,6 +34,10 @@ func NewAIHelper(model_ AIModel, SessionID string) *AIHelper {
 		saveFunc: func(msg *model.Message) (*model.Message, error) {
 			data := rabbitmq.GenerateMessageMQParam(msg.SessionID, msg.Content, msg.UserName, msg.IsUser)
 			//将消息序列化为JSON格式
+			if rabbitmq.RMQMessage == nil {
+        		log.Println("警告: RabbitMQ 未初始化，消息未能发送到队列")
+        		return msg, errors.New("RabbitMQ is not initialized")
+    		}//防止全局变量没有初始化，调用Publish方法后出现panic
 			err := rabbitmq.RMQMessage.Publish(data)
 			//发布消息到MQ
 			return msg, err
@@ -48,7 +54,11 @@ func (a *AIHelper) AddMessage(Content string, UserName string, IsUser bool, Save
 		UserName:  UserName,
 		IsUser:    IsUser,
 	}
+
+	a.mu.Lock()//加上写锁，保证并发安全
 	a.messages = append(a.messages, &userMsg) //向内存中追加消息
+	a.mu.Unlock()
+
 	if Save {
 		a.saveFunc(&userMsg) //调用存储函数（持久化）
 	}
@@ -77,8 +87,16 @@ func (a *AIHelper) GenerateResponse(userName string, ctx context.Context, userQu
 	a.AddMessage(userQuestion, userName, true, true)
 
 	a.mu.RLock()
+
+	var recentMessages []*model.Message
+	if len(a.messages) > 20{
+		recentMessages = a.messages[len(a.messages)-20:]
+	}else{
+		recentMessages = a.messages
+	}
+
 	//将model.Message转化成schema.Message
-	messages := utils.ConvertToSchemaMessages(a.messages)
+	messages := utils.ConvertToSchemaMessages(recentMessages)
 	a.mu.RUnlock()
 
 	//调用模型生成回复
@@ -103,7 +121,15 @@ func (a *AIHelper) StreamResponse(userName string, ctx context.Context, cb Strea
 	a.AddMessage(userQuestion, userName, true, true)
 
 	a.mu.RLock()
-	messages := utils.ConvertToSchemaMessages(a.messages)
+
+	var recentMessages []*model.Message
+	if len(a.messages) > 20{
+		recentMessages = a.messages[len(a.messages)-20:]
+	}else{
+		recentMessages = a.messages
+	}
+
+	messages := utils.ConvertToSchemaMessages(recentMessages)
 	a.mu.RUnlock()
 
 	content, err := a.model.StreamResponse(ctx, messages, cb)
