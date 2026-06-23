@@ -206,6 +206,12 @@ export default {
         return
       }
 
+      //新增：自动拦截无会话状态，用户如果直接打字发送，自动将其视为新会话
+      if(!currentSessionId.value){
+        currentSessionId.value = 'temp'
+        tempSession.value = true
+      }
+
       const userMessage = {
         role: 'user',
         content: inputMessage.value
